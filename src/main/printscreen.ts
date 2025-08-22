@@ -137,3 +137,19 @@ export function saveImage(img: NativeImage) {
     fs.writeFileSync(file, img.toPNG())
     return file
 }
+
+export async function handleHotkey() {
+    console.log('🚀 handleHotkey ausgelöst → Snipping Tool öffnen …')
+
+    const baselineHash = getClipboardImageHash()
+    await openSnippingTool()
+
+    try {
+        await new Promise(r => setTimeout(r, 300))
+        const img = await waitForNewClipboardImage(baselineHash, 30000, 250)
+        const file = saveImage(img)
+        console.log('✅ Screenshot gespeichert:', file)
+    } catch (err) {
+        console.warn('⚠️ Kein neues Snip gefunden:', (err as Error)?.message)
+    }
+}

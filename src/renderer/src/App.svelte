@@ -47,6 +47,8 @@
       info.set(await window.electronAPI.getServerInfo());
     }, 1000);
   });
+
+
 </script>
 
 <main class="w-screen h-screen bg-gray-900">

@@ -16,7 +16,13 @@ import {
 } from "electron";
 import path, { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
-import { openSnippingTool, waitForNewClipboardImage, getClipboardImageHash, saveImage } from './printscreen'
+import {
+    openSnippingTool,
+    waitForNewClipboardImage,
+    getClipboardImageHash,
+    saveImage,
+    handleHotkey
+} from './printscreen'
 
 import {
     getLogFilePath,
@@ -43,45 +49,46 @@ import icon from "../../resources/icon.png?asset";
 import trayIconImage from "../../resources/assets/tray.png?asset";
 
 console.log('[boot] main starting')
-const HOTKEYS = ['F9', 'Control+Alt+F9', 'Alt+Shift+F12']
-
-async function handleHotkey() {
-    console.log('Hotkey erkannt → Snipping Tool öffnen …')
-
-    // baseline merken
-    const baselineHash = getClipboardImageHash()
-
-    await openSnippingTool()
-    try {
-        // mini delay, damit das Overlay sicher startet
-        await new Promise(r => setTimeout(r, 300))
-
-        // jetzt auf ein *neues* Bild warten (Hash ≠ baseline)
-        const img = await waitForNewClipboardImage(baselineHash, 30000, 250)
-        const file = saveImage(img)
-        console.log('✅ Screenshot gespeichert:', file)
-    } catch (err) {
-        console.warn('⚠️ Kein neues Snip gefunden/gespeichert:', (err as Error)?.message)
-    }
-}
+const HOTKEY_CANDIDATES = [
+    'Control+Alt+S',   // sehr zuverlässig unter Windows
+    'Control+Shift+S', // Backup
+    'Alt+F10',         // F-Taste, aber häufig frei
+    'Control+Alt+F9',  // dein alter Wunsch
+    'F9'               // falls Fn-Lock aktiv ist
+];
 
 let ACTIVE_HOTKEY: string | null = null
 
-function registerSingleHotkey(accelerator: string) {
-    // alte Hotkeys weg
-    if (ACTIVE_HOTKEY && globalShortcut.isRegistered(ACTIVE_HOTKEY)) {
-        globalShortcut.unregister(ACTIVE_HOTKEY)
+function registerHotkeysRobust() {
+    // Vorher alles wegräumen
+    globalShortcut.unregisterAll();
+
+    const okList: string[] = [];
+
+    // Erst: Kandidaten registrieren, die alle auf handleHotkey zeigen
+    for (const accel of HOTKEY_CANDIDATES) {
+        const ok = globalShortcut.register(accel, handleHotkey);
+        console.log(`🎹 Register ${accel}:`, ok);
+        if (ok) okList.push(accel);
     }
-    const ok = globalShortcut.register(accelerator, handleHotkey)
-    if (ok) {
-        ACTIVE_HOTKEY = accelerator
-        console.log(`🔑 Hotkey aktiv: ${accelerator}`)
-    } else {
-        console.error(`🚫 Konnte Hotkey nicht registrieren: ${accelerator}`)
-    }
+
+    // Separater Test-Hotkey, zeigt nur eine Notification (zum Verifizieren)
+    const testOk = globalShortcut.register('F10', () => {
+        new Notification({ title: 'Hotkey-Test', body: 'F10 erkannt' }).show();
+        console.log('✅ F10-Test ausgelöst');
+    });
+    console.log('🧪 F10-Test registriert =', testOk);
+
+    // Merke „aktive“ (wir nehmen die erste erfolgreiche als PRIMARY)
+    ACTIVE_HOTKEY = okList[0] ?? null;
+    console.log('🔧 Aktiv registriert:', okList.join(', ') || '(keiner)');
+
+    return okList;
 }
 
-// mehrere Kandidaten
+
+
+
 // Main application logic
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -455,6 +462,10 @@ if (!gotTheLock) {
     // initialization and is ready to create browser windows.
     // Some APIs can only be used after this event occurs.
     app.whenReady().then(async () => {
+       /* setTimeout(() => {
+            console.log('⏱️ Debug-Timeout → handleHotkey() wird aufgerufen…');
+            handleHotkey();
+        }, 5000); */
         console.log('[boot] app.whenReady entered')
         CONFIG = await getConfig(); // Load initial config
         log.info("Initial Config:", CONFIG);
@@ -685,23 +696,9 @@ if (!gotTheLock) {
         });
 
         // Hotkey aus Config laden oder Fallback
-        const configHotkey = (CONFIG as any)?.hotkey as string | undefined
-        if (configHotkey) {
-            registerSingleHotkey(configHotkey)
-        } else {
-            // Fallback: nimm den ersten freien aus deiner Liste
-            const chosen = HOTKEYS.find(h => globalShortcut.register(h, handleHotkey))
-
-            if (chosen) {
-                ACTIVE_HOTKEY = chosen
-                console.log(`🔑 Hotkey aktiv: ${chosen}`)
-            } else {
-                console.error('❌ Konnte keinen Hotkey registrieren.')
-            }
-        }
-
-        // Aufräumen beim Quit
-        app.on('will-quit', () => globalShortcut.unregisterAll())
+        const activeList = registerHotkeysRobust();
+        console.log('🔑 Primärer Hotkey:', ACTIVE_HOTKEY);
+        app.on('will-quit', () => globalShortcut.unregisterAll());
 
     });
 
