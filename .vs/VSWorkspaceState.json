@@ -1,0 +1,11 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\src",
+    "\\src\\preload",
+    "\\src\\renderer",
+    "\\src\\renderer\\src"
+  ],
+  "SelectedNode": "\\src\\renderer\\src\\env.d.ts",
+  "PreviewInSolutionExplorer": false
+}
