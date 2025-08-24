@@ -50,11 +50,8 @@ import trayIconImage from "../../resources/assets/tray.png?asset";
 
 console.log('[boot] main starting')
 const HOTKEY_CANDIDATES = [
-    'Control+Alt+S',   // sehr zuverlässig unter Windows
-    'Control+Shift+S', // Backup
+    'Shift+Super+E',   // Management Wunsch
     'Alt+F10',         // F-Taste, aber häufig frei
-    'Control+Alt+F9',  // dein alter Wunsch
-    'F9'               // falls Fn-Lock aktiv ist
 ];
 
 let ACTIVE_HOTKEY: string | null = null
