@@ -102,3 +102,5 @@ resources/python.tar.gz
 _old
 
 dist
+bun.lock
+src/main/.index.ts.swp
